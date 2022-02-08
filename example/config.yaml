@@ -1,0 +1,18 @@
+---
+apiVersion: secretschecker.config.plkokanov/v1alpha1
+kind: SecretsCheckerConfiguration
+gardenClientConnection:
+  qps: 100
+  burst: 130
+seedClientConnection:
+  qps: 100
+  burst: 130
+controllers:
+  shootSecrets:
+    concurrentSyncs: 5
+logLevel: info
+logFormat: json
+kubernetesLogLevel: 0
+debugging:
+  enableProfiling: false
+  enableContentionProfiling: false

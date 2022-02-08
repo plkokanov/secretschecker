@@ -1,0 +1,15 @@
+/args
+/bin
+/hack/tools/bin
+/.kube-secrets
+/tmp/*
+/local
+/dev
+
+*.test
+*.coverprofile
+*.html
+.vscode
+.idea
+.DS_Store
+*~
