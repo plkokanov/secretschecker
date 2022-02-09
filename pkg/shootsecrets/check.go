@@ -115,7 +115,7 @@ func (c *Checker) checkSecrets(ctx context.Context, shoot gardencorev1beta1.Shoo
 
 	shootLog := c.Log.WithValues("shoot", client.ObjectKeyFromObject(&shoot))
 
-	shootLog.V(0).Info("Checking secrets for shoot")
+	shootLog.V(1).Info("Checking secrets for shoot")
 	seedName := shoot.Spec.SeedName
 	if seedName == nil {
 		return fmt.Errorf("shoot %s is not assigned to seed", shoot.Name)
@@ -181,10 +181,10 @@ func (c *Checker) checkSecrets(ctx context.Context, shoot gardencorev1beta1.Shoo
 		if !result {
 			shootLog.V(0).Info("Mismatch in secrets", "secret", secretData.Name)
 		} else {
-			shootLog.V(3).Info("Secrets match", "secret", secretData.Name)
+			shootLog.V(1).Info("Secrets match", "secret", secretData.Name)
 		}
 	}
-	shootLog.V(0).Info("Finished checking secrets for shoot")
+	shootLog.V(1).Info("Finished checking secrets for shoot")
 	return nil
 }
 
