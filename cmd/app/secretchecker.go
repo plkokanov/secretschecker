@@ -46,6 +46,8 @@ type Options struct {
 	SyncToShootState bool
 	config           *config.SecretsCheckerConfiguration
 	scheme           *runtime.Scheme
+	Shoot            string
+	Namespace        string
 	codecs           serializer.CodecFactory
 }
 
@@ -71,6 +73,8 @@ func NewOptions() (*Options, error) {
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.ConfigFile, "config", o.ConfigFile, "The path to the configuration file.")
 	fs.BoolVar(&o.SyncToShootState, "sync-to-shootstate", o.SyncToShootState, "This flag determines whether to sync the secrets from the shoot's namespace in the seed to the ShootState")
+	fs.StringVar(&o.Shoot, "shoot", o.Shoot, "Specifies the secrets of which shoot should be checked for consistency")
+	fs.StringVar(&o.Namespace, "namespace", o.Namespace, "Specifies the namespace in which to look for shoots")
 }
 
 func (o *Options) loadConfigFromFile(file string) (*config.SecretsCheckerConfiguration, error) {
@@ -97,6 +101,13 @@ func (o *Options) validate(args []string) error {
 		return errors.New("arguments are not supported")
 	}
 
+	return nil
+}
+
+func (o *Options) validateShootName() error {
+	if o.Shoot != "" && o.Namespace == "" {
+		return errors.New("--namespace flag must be specified when specifing shoot name")
+	}
 	return nil
 }
 
@@ -140,6 +151,9 @@ func NewCommandStartSecretsChecker() *cobra.Command {
 			if err := opts.configFileSpecified(); err != nil {
 				return err
 			}
+			if err := opts.validateShootName(); err != nil {
+				return err
+			}
 			if err := opts.validate(args); err != nil {
 				return err
 			}
@@ -157,6 +171,8 @@ func NewCommandStartSecretsChecker() *cobra.Command {
 type SecretsChecker struct {
 	Config           *config.SecretsCheckerConfiguration
 	SyncToShootState bool
+	Shoot            string
+	Namespace        string
 	ClientMap        clientmap.ClientMap
 	Log              logr.Logger
 }
@@ -214,6 +230,8 @@ func NewSecretsChecker(ctx context.Context, opts *Options) (*SecretsChecker, err
 	return &SecretsChecker{
 		Config:           cfg,
 		SyncToShootState: opts.SyncToShootState,
+		Shoot:            opts.Shoot,
+		Namespace:        opts.Namespace,
 		Log:              log,
 		ClientMap:        clientMap,
 	}, nil
@@ -223,6 +241,8 @@ func (s *SecretsChecker) Execute(ctx context.Context) error {
 	return checker.NewChecker(
 		s.Config,
 		s.SyncToShootState,
+		s.Shoot,
+		s.Namespace,
 		clientprovider.DefaultSeedClientProviderFactory,
 		s.ClientMap,
 		s.Log).Execute(ctx)

@@ -19,6 +19,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"reflect"
+	"strings"
 
 	gardencorev1alpha1helper "github.com/gardener/gardener/pkg/apis/core/v1alpha1/helper"
 	"github.com/gardener/gardener/pkg/utils"
@@ -140,6 +141,10 @@ func (l *loader) Load(secretConfig secrets.ConfigInterface, existingSecret *core
 	}
 	dataFromShootState, err = infodata.GetInfoData(l.gardenerResourceDataList, secretConfig.GetName())
 	if err != nil {
+		if strings.Contains(err.Error(), "unknown info data type") {
+			l.logger.V(1).Info("could not unmarshal infodata", "name", secretConfig.GetName(), "error", err.Error())
+			return nil, nil, nil
+		}
 		return nil, nil, err
 	}
 	return

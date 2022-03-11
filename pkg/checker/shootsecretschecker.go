@@ -162,6 +162,10 @@ func (c *ShootSecretsChecker) checkSecrets(ctx context.Context, collection Colle
 		if err != nil {
 			return err
 		}
+		if dataFromShootState == nil || dataFromExistingSecret == nil {
+			c.logger.V(1).Info("No data loaded. Skipping check.", "name", name)
+			return nil
+		}
 
 		secretVerified := true
 		caName := ""

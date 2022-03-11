@@ -25,21 +25,27 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/plkokanov/secretschecker/pkg/apis/config"
 	"github.com/plkokanov/secretschecker/pkg/clientprovider"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Checker struct {
 	Config             *config.SecretsCheckerConfiguration
 	SyncToShootState   bool
+	ShootName          string
+	Namespace          string
 	ClientMap          clientmap.ClientMap
 	SeedClientProvider clientprovider.SeedClientProviderFactory
 	Log                logr.Logger
-	shootQueue         chan *gardencorev1beta1.Shoot
+	shootQueue         chan gardencorev1beta1.Shoot
 }
 
-func NewChecker(cfg *config.SecretsCheckerConfiguration, syncToShootState bool, clientProviderFactory clientprovider.SeedClientProviderFactory, clientMap clientmap.ClientMap, log logr.Logger) *Checker {
+func NewChecker(cfg *config.SecretsCheckerConfiguration, syncToShootState bool, shoot string, namespace string, clientProviderFactory clientprovider.SeedClientProviderFactory, clientMap clientmap.ClientMap, log logr.Logger) *Checker {
 	return &Checker{
 		Config:             cfg,
 		SyncToShootState:   syncToShootState,
+		ShootName:          shoot,
+		Namespace:          namespace,
 		ClientMap:          clientMap,
 		SeedClientProvider: clientProviderFactory,
 		Log:                log,
@@ -52,14 +58,29 @@ func (c *Checker) Execute(ctx context.Context) error {
 		return fmt.Errorf("could not get client to garden cluster: %w", err)
 	}
 
-	shootList := &gardencorev1beta1.ShootList{}
-	if err := gardenClient.Client().List(ctx, shootList); err != nil {
-		return err
+	if c.ShootName != "" && c.Namespace != "" {
+		shoot := &gardencorev1beta1.Shoot{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      c.ShootName,
+				Namespace: c.Namespace,
+			},
+		}
+		if err := gardenClient.Client().Get(ctx, client.ObjectKeyFromObject(shoot), shoot); err != nil {
+			return err
+		}
+		c.shootQueue = make(chan gardencorev1beta1.Shoot, 1)
+		c.shootQueue <- *shoot
+	} else {
+		shootList := &gardencorev1beta1.ShootList{}
+		if err := gardenClient.Client().List(ctx, shootList, client.InNamespace(c.Namespace)); err != nil {
+			return err
+		}
+		c.shootQueue = make(chan gardencorev1beta1.Shoot, len(shootList.Items))
+		for _, shoot := range shootList.Items {
+			c.shootQueue <- shoot
+		}
 	}
-	shootQueue := make(chan gardencorev1beta1.Shoot, len(shootList.Items))
-	for _, shoot := range shootList.Items {
-		shootQueue <- shoot
-	}
+
 	seedClientProvider := c.SeedClientProvider.New(c.ClientMap)
 
 	c.Log.V(0).Info("Starting workers...")
@@ -71,7 +92,7 @@ func (c *Checker) Execute(ctx context.Context) error {
 			defer wg.Done()
 			for {
 				select {
-				case shoot := <-shootQueue:
+				case shoot := <-c.shootQueue:
 					seedClient, err := seedClientProvider.GetClient(ctx, *shoot.Spec.SeedName)
 					if err != nil {
 						errorChan <- err
