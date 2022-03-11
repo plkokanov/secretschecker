@@ -9,10 +9,10 @@ seedClientConnection:
   burst: 130
 controllers:
   shootSecrets:
-    concurrentSyncs: 5
+    concurrentSyncs: 10
 logLevel: info
 logFormat: json
-kubernetesLogLevel: 0
+kubernetesLogLevel: 1
 debugging:
   enableProfiling: false
   enableContentionProfiling: false

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package shootsecrets
+package clientprovider
 
 import (
 	"context"
@@ -36,11 +36,17 @@ type SeedClientProviderFactory interface {
 	New(clientmap.ClientMap) SeedClientProvider
 }
 
-type SeedClientProviderCreatorFunc func(cleintMap clientmap.ClientMap) SeedClientProvider
+type SeedClientProviderFactoryFunc func(cleintMap clientmap.ClientMap) SeedClientProvider
 
-func (f SeedClientProviderCreatorFunc) New(clientMap clientmap.ClientMap) SeedClientProvider {
+func (f SeedClientProviderFactoryFunc) New(clientMap clientmap.ClientMap) SeedClientProvider {
 	return f(clientMap)
 }
+
+var DefaultSeedClientProviderFactory = SeedClientProviderFactoryFunc(func(clientMap clientmap.ClientMap) SeedClientProvider {
+	return NewDefaultSeedClientProvider(clientMap)
+})
+
+var _ SeedClientProviderFactory = SeedClientProviderFactoryFunc(nil)
 
 type seedClientProvider struct {
 	clientMap   clientmap.ClientMap

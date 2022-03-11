@@ -24,7 +24,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/plkokanov/secretschecker/pkg/apis/config"
 	configv1alpha1 "github.com/plkokanov/secretschecker/pkg/apis/config/v1alpha1"
-	"github.com/plkokanov/secretschecker/pkg/shootsecrets"
+	"github.com/plkokanov/secretschecker/pkg/checker"
+	"github.com/plkokanov/secretschecker/pkg/clientprovider"
 
 	"github.com/gardener/gardener/pkg/client/kubernetes/clientmap"
 	clientmapbuilder "github.com/gardener/gardener/pkg/client/kubernetes/clientmap/builder"
@@ -41,10 +42,11 @@ import (
 
 type Options struct {
 	// ConfigFile is the location of the Gardenlet's configuration file.
-	ConfigFile string
-	config     *config.SecretsCheckerConfiguration
-	scheme     *runtime.Scheme
-	codecs     serializer.CodecFactory
+	ConfigFile       string
+	SyncToShootState bool
+	config           *config.SecretsCheckerConfiguration
+	scheme           *runtime.Scheme
+	codecs           serializer.CodecFactory
 }
 
 func NewOptions() (*Options, error) {
@@ -68,6 +70,7 @@ func NewOptions() (*Options, error) {
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.ConfigFile, "config", o.ConfigFile, "The path to the configuration file.")
+	fs.BoolVar(&o.SyncToShootState, "sync-to-shootstate", o.SyncToShootState, "This flag determines whether to sync the secrets from the shoot's namespace in the seed to the ShootState")
 }
 
 func (o *Options) loadConfigFromFile(file string) (*config.SecretsCheckerConfiguration, error) {
@@ -113,12 +116,12 @@ func (o *Options) run(ctx context.Context) error {
 		o.config = c
 	}
 
-	secretsChecker, err := NewSecretsChecker(ctx, o.config)
+	secretsChecker, err := NewSecretsChecker(ctx, o)
 	if err != nil {
 		return err
 	}
 
-	return secretsChecker.Run(ctx)
+	return secretsChecker.Execute(ctx)
 }
 
 func NewCommandStartSecretsChecker() *cobra.Command {
@@ -152,12 +155,14 @@ func NewCommandStartSecretsChecker() *cobra.Command {
 }
 
 type SecretsChecker struct {
-	Config    *config.SecretsCheckerConfiguration
-	ClientMap clientmap.ClientMap
-	Log       logr.Logger
+	Config           *config.SecretsCheckerConfiguration
+	SyncToShootState bool
+	ClientMap        clientmap.ClientMap
+	Log              logr.Logger
 }
 
-func NewSecretsChecker(ctx context.Context, cfg *config.SecretsCheckerConfiguration) (*SecretsChecker, error) {
+func NewSecretsChecker(ctx context.Context, opts *Options) (*SecretsChecker, error) {
+	cfg := opts.config
 	if cfg == nil {
 		return nil, errors.New("config is required")
 	}
@@ -199,9 +204,6 @@ func NewSecretsChecker(ctx context.Context, cfg *config.SecretsCheckerConfigurat
 	gardenClientMapBuilder := clientmapbuilder.NewGardenClientMapBuilder().
 		WithRESTConfig(restCfg)
 
-	// seedClientMapBuilder := clientmapbuilder.NewSeedClientMapBuilder().
-	// 	WithClientConnectionConfig(&cfg.SeedClientConnection)
-
 	clientMap, err := clientmapbuilder.NewDelegatingClientMapBuilder().
 		WithGardenClientMapBuilder(gardenClientMapBuilder).
 		Build()
@@ -210,19 +212,18 @@ func NewSecretsChecker(ctx context.Context, cfg *config.SecretsCheckerConfigurat
 	}
 
 	return &SecretsChecker{
-		Config:    cfg,
-		Log:       log,
-		ClientMap: clientMap,
+		Config:           cfg,
+		SyncToShootState: opts.SyncToShootState,
+		Log:              log,
+		ClientMap:        clientMap,
 	}, nil
 }
 
-func (s *SecretsChecker) Run(ctx context.Context) error {
-	checker := shootsecrets.NewChecker(
+func (s *SecretsChecker) Execute(ctx context.Context) error {
+	return checker.NewChecker(
 		s.Config,
-		shootsecrets.SeedClientProviderCreatorFunc(func(clientMap clientmap.ClientMap) shootsecrets.SeedClientProvider {
-			return shootsecrets.NewDefaultSeedClientProvider(clientMap)
-		}),
+		s.SyncToShootState,
+		clientprovider.DefaultSeedClientProviderFactory,
 		s.ClientMap,
-		s.Log)
-	return checker.Execute(ctx)
+		s.Log).Execute(ctx)
 }
