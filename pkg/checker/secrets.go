@@ -43,9 +43,15 @@ func NewCAComparator(logger logr.Logger) Comparator {
 }
 
 func (c *caComparator) Compare(name string, fromShootState, fromControlPlane infodata.InfoData) (bool, error) {
-	if fromShootState == nil {
-		// if the secret does not exist in the gardenerResourceDataList from the state then we can assume it is correct
+	if fromShootState == nil || fromShootState == infodata.EmptyInfoData {
+		// if the secret does not exist in the gardenerResourceDataList then we can assume it is correct
 		c.logger.V(1).Info("Secret not found in ShootState", "name", name)
+		return true, nil
+	}
+
+	if fromControlPlane == nil || fromControlPlane == infodata.EmptyInfoData {
+		// if the secret does not exist in the control plane then there is nothing to sync
+		c.logger.V(1).Info("Secret not found in control plane", "name", name)
 		return true, nil
 	}
 
@@ -61,9 +67,15 @@ func NewSecretsComparator(logger logr.Logger) Comparator {
 }
 
 func (c *secretsComparator) Compare(name string, fromShootState, fromControlPlane infodata.InfoData) (bool, error) {
-	if fromShootState == nil {
-		// if the secret does not exist in the gardenerResourceDataList from the state then we can assume it is correct
+	if fromShootState == nil || fromShootState == infodata.EmptyInfoData {
+		// if the secret does not exist in the gardenerResourceDataList then we can assume it is correct
 		c.logger.V(1).Info("Secret not found in ShootState", "name", name)
+		return true, nil
+	}
+
+	if fromControlPlane == nil || fromControlPlane == infodata.EmptyInfoData {
+		// if the secret does not exist in the control plane then there is nothing to sync
+		c.logger.V(1).Info("Secret not found in control plane", "name", name)
 		return true, nil
 	}
 

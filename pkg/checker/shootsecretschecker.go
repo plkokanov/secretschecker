@@ -40,13 +40,14 @@ type ShootSecretsChecker struct {
 	shoot            *gardencorev1beta1.Shoot
 }
 
-func NewShootSecretsChecker(logger logr.Logger, gardenClient client.Client, seedClient client.Client, shoot *gardencorev1beta1.Shoot) *ShootSecretsChecker {
+func NewShootSecretsChecker(logger logr.Logger, gardenClient client.Client, seedClient client.Client, syncToShootState bool, shoot *gardencorev1beta1.Shoot) *ShootSecretsChecker {
 	logger = logger.WithValues("shoot", client.ObjectKeyFromObject(shoot))
 	return &ShootSecretsChecker{
-		logger:       logger,
-		gardenClient: gardenClient,
-		seedClient:   seedClient,
-		shoot:        shoot,
+		logger:           logger,
+		gardenClient:     gardenClient,
+		seedClient:       seedClient,
+		syncToShootState: syncToShootState,
+		shoot:            shoot,
 	}
 }
 

@@ -77,7 +77,7 @@ func (c *Checker) Execute(ctx context.Context) error {
 						errorChan <- err
 						continue
 					}
-					shootSecretsChecker := NewShootSecretsChecker(c.Log, gardenClient.Client(), seedClient.Client(), shoot.DeepCopy())
+					shootSecretsChecker := NewShootSecretsChecker(c.Log, gardenClient.Client(), seedClient.Client(), c.SyncToShootState, shoot.DeepCopy())
 					if err := shootSecretsChecker.CheckSecrets(ctx); err != nil {
 						errorChan <- err
 					}
