@@ -106,7 +106,7 @@ func (o *Options) validate(args []string) error {
 
 func (o *Options) validateShootName() error {
 	if o.Shoot != "" && o.Namespace == "" {
-		return errors.New("--namespace flag must be specified when specifing shoot name")
+		return errors.New("--namespace flag must be specified when specifying shoot name")
 	}
 	return nil
 }
